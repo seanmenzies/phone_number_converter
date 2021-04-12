@@ -1,4 +1,8 @@
 # PHONE NUMBER FORMAT CONVERTER
+
+Reads xlsx file, extracts specific columns/rows according to user input, saves to .csv using unicode-16 (most data is in Bulgarian cyrillic).
+Prefixes are removed from phone numbers with output following the format 'dddd ddd ddd'; middle names are removed
+
 VERSION -- 1.3
 
 Added 1.1:
