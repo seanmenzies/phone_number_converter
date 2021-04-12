@@ -1,0 +1,160 @@
+"""Takes as input xlsx files, asks users for location of key data
+then iterates across all files in a directory, converting all phone
+numbers to a standard format"""
+
+import re
+import os
+import openpyxl
+from openpyxl import Workbook
+import csv
+
+
+# convert column letters to openpyxl column numbers
+def let_to_num(letter):
+    if letter == 'A':
+        return 1
+    if letter == 'B':
+        return 2
+    if letter == 'C':
+        return 3
+    if letter == 'D':
+        return 4
+    if letter == 'E':
+        return 5
+    if letter == 'F':
+        return 6
+    if letter == 'G':
+        return 7
+
+
+# variables for two required directories
+origindir = '1. Original Versions'
+convertdir = '2. Converted Versions'
+
+# check above directories exist, create if not
+if not os.path.exists(origindir):
+    os.makedirs(origindir)
+
+if not os.path.exists(convertdir):
+    os.makedirs(convertdir)
+# set file count at 0
+completed = 0
+
+wb = Workbook()
+
+# iterate over files in a directory
+for file in os.listdir(origindir):
+    # separate file name from extension
+    extension = os.path.splitext(file)
+    print(f'Converting file {extension[0]}')
+    # take user input, checking for correct entry
+    name_row = (input('Please enter the row for the table headers (number): '))
+    while not name_row.isnumeric():
+        name_row = (input('Please enter a number: '))
+    name_row = int(name_row)
+    last_name_row = (input('Please enter the last row for data set (number): '))
+    while not last_name_row.isnumeric():
+        last_name_row = int(input('Please enter a number: '))
+    last_name_row = int(last_name_row)
+    name_column = input('Please enter the NAMES column (letter): ').upper()
+    while not name_column.isalpha():
+        name_column = (input('Please enter a letter: '))
+    job_column = input('Please enter the JOB TITLE column: ').upper()
+    while not job_column.isalpha():
+        job_column = (input('Please enter a letter: '))
+    number_column = input('Please enter the NUMBERS column: ').upper()
+    while not number_column.isalpha():
+        number_column = (input('Please enter a letter: '))
+    email_column = input('Please enter the EMAIL column: ').upper()
+    while not email_column.isalpha():
+        email_column = (input('Please enter a letter: '))
+    # prompt user to close files
+    input("Please close files then press Enter to continue...")
+    # check file is xlsx, print error message and skip over if not
+    if extension[-1] != '.xlsx':
+        print("File " + extension[0] + " could not be opened. 'xlsx' format required. \n"
+                                       "Re-save as xlsx then try again.")
+        continue
+    else:
+        pattern1 = re.compile(r'(^\+359)')
+        pattern2 = re.compile(r'(^359)(\d{9})')
+        pattern3 = re.compile(r'^\d{9}$')
+        target_pattern = re.compile(r'(\d{4}\s\d{3}\s\d{3})')
+        ws = openpyxl.load_workbook(os.path.join(origindir, file), data_only=True)
+        # iterate over names column saving to list
+        names = []
+        for cell in ws.active[f'{name_column}']:
+            # replace None with empty string
+            if cell.value is None:
+                names.insert(len(names), '')
+            else:
+                split_name = cell.value.split()
+                if len(split_name) == 3:
+                    del split_name[1]
+                    names.insert(len(names), ' '.join(split_name))
+                else:
+                    names.insert(len(names), cell.value)
+        # splice relevant data
+        names = names[name_row - 1:last_name_row]
+        # iterate over numbers column saving to list
+        jobs = []
+        for cell in ws.active[f'{job_column}']:
+            if cell.value is None:
+                jobs.insert(len(jobs), '')
+            else:
+                cell.value = str(cell.value)
+                jobs.insert(len(jobs), cell.value.strip())
+        jobs = jobs[name_row - 1:last_name_row]
+        baseline_numbers = []
+        for cell in ws.active[f'{number_column}']:
+            if cell.value is None:
+                baseline_numbers.insert(len(baseline_numbers), '')
+            else:
+                baseline_numbers.insert(len(baseline_numbers), str(cell.value))
+        baseline_numbers = baseline_numbers[name_row - 1:last_name_row]
+        # iterate over emails column saving to list
+        emails = []
+        for cell in ws.active[f'{email_column}']:
+            if cell.value is None:
+                emails.insert(len(emails), '')
+            else:
+                emails.insert(len(emails), cell.value)
+        emails = emails[name_row - 1:last_name_row]
+
+        for item in baseline_numbers:
+            baseline_numbers[baseline_numbers.index(item)] = item.replace(" ", "")
+
+        converted_numbers = []
+        # iterate over numbers, equalising format
+        for item in baseline_numbers:
+            if not re.search(r'(\+?(\d*))', item):
+                converted_numbers.insert(len(converted_numbers), item)
+                continue
+            if re.search(pattern1, item):
+                converted_numbers.insert(len(converted_numbers), item.replace('+359', '0'))
+                continue
+            if re.search(pattern2, item):
+                converted_numbers.insert(len(converted_numbers), item.replace('359', '0'))
+                continue
+            if re.search(pattern3, item):
+                converted_numbers.insert(len(converted_numbers), '0' + item)
+                continue
+            else:
+                converted_numbers.insert(len(converted_numbers), item)
+
+        # Convert to desired format
+        for item in converted_numbers:
+            converted_numbers[converted_numbers.index(item)] = re.sub(r'(\d{4})(\d{3})(\d{3})', r'\1 \2 \3', item)
+
+        # Create csv file in 2nd dir and write in dictionary
+        with open(f'{os.path.join(convertdir, extension[0])}' + '.csv',
+                  mode='w', encoding='UTF-16', newline='') as csv_file:
+            w = csv.writer(csv_file, delimiter='\t')
+            for a, b, c, d in zip(names, jobs, converted_numbers, emails):
+                z = (a, b, c, d)
+                w.writerow(z)
+
+        # Count files successfully converted
+        completed += 1
+
+input(f'{completed} file/s successfully converted. Press Enter to close the program.')
