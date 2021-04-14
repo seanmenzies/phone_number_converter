@@ -32,4 +32,3 @@ ONLY XLSX FILES WILL CONVERT
 7. Repeat for all files
 8. Close program
 9. Open '2. Converted Versions' to access converted csv files (if importing into InDesign, use 'unicode' option)
-10. Buy me a beer
